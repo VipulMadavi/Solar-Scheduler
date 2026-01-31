@@ -10,7 +10,7 @@ from statsmodels.tsa.arima.model import ARIMA
 def persistence_forecast(historical_df, horizon=CONFIG["horizon_hours"]):
     """Baseline: Tomorrow = yesterday"""
     last_day = historical_df['solar_power_kw'].tail(24).values
-    future_times = pd.date_range(start=historical_df.index[-1] + pd.Timedelta(hours=1), periods=horizon, freq='H')
+    future_times = pd.date_range(start=historical_df.index[-1] + pd.Timedelta(hours=1), periods=horizon, freq='h')
     return pd.Series(np.tile(last_day[:24], horizon//24 + 1)[:horizon], 
                     index=future_times)
 
@@ -21,7 +21,7 @@ def arima_forecast(historical_df, horizon=CONFIG["horizon_hours"]):
                   seasonal_order=CONFIG["arima_seasonal"])
     fitted = model.fit()
     forecast_steps = fitted.forecast(steps=horizon)
-    future_times = pd.date_range(start=historical_df.index[-1] + pd.Timedelta(hours=1), periods=horizon, freq='H')
+    future_times = pd.date_range(start=historical_df.index[-1] + pd.Timedelta(hours=1), periods=horizon, freq='h')
     return pd.Series(forecast_steps, index=future_times)
 
 def forecast_solar(historical_df, method=None, horizon=None):
