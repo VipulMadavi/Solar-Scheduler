@@ -4,6 +4,7 @@ exports.runSchedulerTick = runSchedulerTick;
 const state_service_1 = require("./state.service");
 const index_1 = require("../index");
 const solar_service_1 = require("./solar.service");
+const systemConfiguration_1 = require("./systemConfiguration");
 /**
  * Run one scheduler timestep.
  * Reads state, gets forecast, runs scheduler, updates state.
@@ -13,7 +14,7 @@ function runSchedulerTick() {
     const output = (0, index_1.runScheduler)({
         solarForecastWh,
         batteryRemainingWh: state_service_1.state.batteryRemainingWh,
-        batteryCapacityWh: state_service_1.state.batteryCapacityWh,
+        batteryCapacityWh: systemConfiguration_1.systemConfigurationService.getSystemConfig().batteryCapacityWh,
         devices: state_service_1.state.devices,
         overrideMode: state_service_1.state.overrideMode,
         timestepHours: 0.25,

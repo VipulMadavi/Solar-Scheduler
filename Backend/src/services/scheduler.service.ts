@@ -1,6 +1,7 @@
 import { state } from "./state.service";
 import { runScheduler } from "../index";
 import { getNextSolarForecastWh } from "./solar.service";
+import { systemConfigurationService } from "./systemConfiguration";
 
 /**
  * Run one scheduler timestep.
@@ -8,29 +9,29 @@ import { getNextSolarForecastWh } from "./solar.service";
  */
 export function runSchedulerTick(): void {
   const solarForecastWh = getNextSolarForecastWh();
-  
+
   const output = runScheduler({
     solarForecastWh,
     batteryRemainingWh: state.batteryRemainingWh,
-    batteryCapacityWh: state.batteryCapacityWh,
+    batteryCapacityWh: systemConfigurationService.getSystemConfig().batteryCapacityWh,
     devices: state.devices,
     overrideMode: state.overrideMode,
     timestepHours: 0.25,
   });
-  
+
   // Calculate energy deficit (using original battery state before consumption)
   const totalLoadWh = output.devices
     .filter(device => device.isOn)
     .reduce((sum, device) => sum + device.powerW * 0.25, 0);
-  
+
   const availableEnergyWh = state.batteryRemainingWh + solarForecastWh;
   state.energyDeficitWh = Math.max(0, totalLoadWh - availableEnergyWh);
-  
+
   // Update state after deficit calculation
   state.batteryRemainingWh = output.batteryRemainingWh;
   state.devices = output.devices;
   state.lastSolarForecastWh = solarForecastWh;
-  
+
   // Update time window metadata
   state.windowStart = new Date().toISOString();
   state.windowEnd = new Date(Date.now() + state.timestepMinutes * 60 * 1000).toISOString();

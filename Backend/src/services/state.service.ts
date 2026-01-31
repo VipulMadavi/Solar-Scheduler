@@ -1,12 +1,15 @@
+import { systemConfigurationService } from "./systemConfiguration";
 import { Device } from "../core/types";
+
+const config = systemConfigurationService.getSystemConfig();
 
 /**
  * In-memory state object.
  * Mutate directly: state.batteryRemainingWh = 1000;
  */
 export const state = {
-  batteryRemainingWh: 0,
-  batteryCapacityWh: 5000,
+  batteryRemainingWh: config.batteryCapacityWh,
+  batteryCapacityWh: config.batteryCapacityWh,
   devices: [
     { id: "1", name: "Security System", powerW: 50, type: "CRITICAL", isOn: false },
     { id: "2", name: "Refrigerator", powerW: 200, type: "CRITICAL", isOn: false },

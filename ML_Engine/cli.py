@@ -396,6 +396,44 @@ Output Units: kw (kilowatts - power) | wh (watt-hours - energy)
                 csv_file, args.target, args.method, args.unit, args.interval
             )
         
+
+        # ---------------------------------------------------------
+        # ROBUST FILE WRITING TO BACKEND
+        # ---------------------------------------------------------
+        try:
+            # Resolve project root (Solar Schedular) from ML_Engine/cli.py
+            root_dir = Path(__file__).resolve().parents[1]
+            
+            # Target Backend directory (ensure casing matches filesystem)
+            backend_dir = root_dir / "Backend"
+            backend_dir.mkdir(parents=True, exist_ok=True)
+            
+            backend_file = backend_dir / "ml_forecast.json"
+            
+            print(f"DEBUG: Attempting to write to: {backend_file}")
+            
+            # Extract Avg (1h) dynamically based on unit
+            forecast_key = f"forecast_{args.unit}"
+            avg_1h_value = result[forecast_key]["avg_1h"]
+            
+            output_data = {
+                "avgKw1h": avg_1h_value,
+                "confidence": result["confidence"],
+                "generatedAt": result["timestamp"]
+            }
+            
+            with open(backend_file, 'w') as f:
+                json.dump(output_data, f, indent=2)
+                
+            print(f"✅ Successfully wrote ML forecast to: {backend_file}")
+            
+        except Exception as e:
+            print(f"❌ CRITICAL ERROR: Failed to write ML forecast file.")
+            print(f"Path attempted: {locals().get('backend_file', 'UNKNOWN')}")
+            print(f"Error details: {e}")
+            # Ensure we don't crash the main CLI output, but strictly report this error
+
+        
         # Output based on format
         if args.format == 'json':
             print(json.dumps(result, indent=2))

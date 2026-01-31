@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { randomUUID } from "crypto";
 import { state } from "../services/state.service";
+import { systemConfigurationService } from "../services/systemConfiguration";
 
 /**
  * GET /state
@@ -8,25 +9,25 @@ import { state } from "../services/state.service";
  */
 export function getState(req: Request, res: Response): void {
   const warnings: string[] = [];
-  
+
   // Check for battery depletion
   if (state.batteryRemainingWh === 0) {
     warnings.push("Battery depleted");
   }
-  
+
   // Check for energy deficit
   if (state.energyDeficitWh > 0) {
     warnings.push("Insufficient energy to sustain current loads");
-    
+
     // Check if only CRITICAL devices are ON
     const devicesOn = state.devices.filter(d => d.isOn);
     const onlyCriticalOn = devicesOn.length > 0 && devicesOn.every(d => d.type === "CRITICAL");
-    
+
     if (onlyCriticalOn) {
       warnings.push("System running in survival mode (critical loads only)");
     }
   }
-  
+
   res.json({
     batteryRemainingWh: state.batteryRemainingWh,
     batteryCapacityWh: state.batteryCapacityWh,
@@ -39,6 +40,7 @@ export function getState(req: Request, res: Response): void {
     energyDeficitWh: state.energyDeficitWh,
     solarForecastWh: state.lastSolarForecastWh,
     warnings,
+    systemConfig: systemConfigurationService.getSystemConfig(),
   });
 }
 
@@ -49,12 +51,12 @@ export function getState(req: Request, res: Response): void {
  */
 export function setOverride(req: Request, res: Response): void {
   const { overrideMode } = req.body;
-  
+
   if (typeof overrideMode !== "boolean") {
     res.status(400).json({ error: "overrideMode must be a boolean" });
     return;
   }
-  
+
   state.overrideMode = overrideMode;
   res.json({ overrideMode: state.overrideMode });
 }
@@ -70,21 +72,21 @@ export function setDevice(req: Request, res: Response): void {
     res.status(403).json({ error: "Override mode must be enabled to manually control devices" });
     return;
   }
-  
+
   const { id } = req.params;
   const { isOn } = req.body;
-  
+
   if (typeof isOn !== "boolean") {
     res.status(400).json({ error: "isOn must be a boolean" });
     return;
   }
-  
+
   const device = state.devices.find(d => d.id === id);
   if (!device) {
     res.status(404).json({ error: "Device not found" });
     return;
   }
-  
+
   device.isOn = isOn;
   res.json(device);
 }
@@ -104,12 +106,12 @@ export function getDevices(req: Request, res: Response): void {
  */
 export function addDevice(req: Request, res: Response): void {
   const { name, powerW, type } = req.body;
-  
+
   if (!name || powerW === undefined || !type) {
     res.status(400).json({ error: "Missing required fields: name, powerW, type" });
     return;
   }
-  
+
   const device = {
     id: randomUUID(),
     name,
@@ -117,7 +119,7 @@ export function addDevice(req: Request, res: Response): void {
     type,
     isOn: false,
   };
-  
+
   state.devices.push(device);
   res.json(device);
 }
@@ -128,13 +130,59 @@ export function addDevice(req: Request, res: Response): void {
  */
 export function deleteDevice(req: Request, res: Response): void {
   const { id } = req.params;
-  
+
   const index = state.devices.findIndex(d => d.id === id);
   if (index === -1) {
     res.status(404).json({ error: "Device not found" });
     return;
   }
-  
+
   state.devices.splice(index, 1);
   res.json({ message: "Device deleted" });
 }
+
+/**
+ * GET /config
+ * Return system configuration
+ */
+export function getSystemConfig(req: Request, res: Response): void {
+  res.json(systemConfigurationService.getSystemConfig());
+}
+
+/**
+ * POST /config
+ * Update system configuration (partial update)
+ * Body: { panelCapacityKw?, batteryCapacityWh?, efficiency? }
+ */
+export function updateSystemConfig(req: Request, res: Response): void {
+  const { panelCapacityKw, batteryCapacityWh, efficiency } = req.body;
+  const updates: any = {};
+
+  if (panelCapacityKw !== undefined) {
+    if (typeof panelCapacityKw !== 'number' || panelCapacityKw <= 0) {
+      res.status(400).json({ error: "panelCapacityKw must be a number > 0" });
+      return;
+    }
+    updates.panelCapacityKw = panelCapacityKw;
+  }
+
+  if (batteryCapacityWh !== undefined) {
+    if (typeof batteryCapacityWh !== 'number' || batteryCapacityWh <= 0) {
+      res.status(400).json({ error: "batteryCapacityWh must be a number > 0" });
+      return;
+    }
+    updates.batteryCapacityWh = batteryCapacityWh;
+  }
+
+  if (efficiency !== undefined) {
+    if (typeof efficiency !== 'number' || efficiency <= 0 || efficiency > 1) {
+      res.status(400).json({ error: "efficiency must be a number > 0 and <= 1" });
+      return;
+    }
+    updates.efficiency = efficiency;
+  }
+
+  systemConfigurationService.updateSystemConfig(updates);
+  res.json(systemConfigurationService.getSystemConfig());
+}
+

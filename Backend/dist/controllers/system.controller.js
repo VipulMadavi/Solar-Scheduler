@@ -6,8 +6,11 @@ exports.setDevice = setDevice;
 exports.getDevices = getDevices;
 exports.addDevice = addDevice;
 exports.deleteDevice = deleteDevice;
+exports.getSystemConfig = getSystemConfig;
+exports.updateSystemConfig = updateSystemConfig;
 const crypto_1 = require("crypto");
 const state_service_1 = require("../services/state.service");
+const systemConfiguration_1 = require("../services/systemConfiguration");
 /**
  * GET /state
  * Return current system state
@@ -40,6 +43,7 @@ function getState(req, res) {
         energyDeficitWh: state_service_1.state.energyDeficitWh,
         solarForecastWh: state_service_1.state.lastSolarForecastWh,
         warnings,
+        systemConfig: systemConfiguration_1.systemConfigurationService.getSystemConfig(),
     });
 }
 /**
@@ -122,4 +126,43 @@ function deleteDevice(req, res) {
     }
     state_service_1.state.devices.splice(index, 1);
     res.json({ message: "Device deleted" });
+}
+/**
+ * GET /config
+ * Return system configuration
+ */
+function getSystemConfig(req, res) {
+    res.json(systemConfiguration_1.systemConfigurationService.getSystemConfig());
+}
+/**
+ * POST /config
+ * Update system configuration (partial update)
+ * Body: { panelCapacityKw?, batteryCapacityWh?, efficiency? }
+ */
+function updateSystemConfig(req, res) {
+    const { panelCapacityKw, batteryCapacityWh, efficiency } = req.body;
+    const updates = {};
+    if (panelCapacityKw !== undefined) {
+        if (typeof panelCapacityKw !== 'number' || panelCapacityKw <= 0) {
+            res.status(400).json({ error: "panelCapacityKw must be a number > 0" });
+            return;
+        }
+        updates.panelCapacityKw = panelCapacityKw;
+    }
+    if (batteryCapacityWh !== undefined) {
+        if (typeof batteryCapacityWh !== 'number' || batteryCapacityWh <= 0) {
+            res.status(400).json({ error: "batteryCapacityWh must be a number > 0" });
+            return;
+        }
+        updates.batteryCapacityWh = batteryCapacityWh;
+    }
+    if (efficiency !== undefined) {
+        if (typeof efficiency !== 'number' || efficiency <= 0 || efficiency > 1) {
+            res.status(400).json({ error: "efficiency must be a number > 0 and <= 1" });
+            return;
+        }
+        updates.efficiency = efficiency;
+    }
+    systemConfiguration_1.systemConfigurationService.updateSystemConfig(updates);
+    res.json(systemConfiguration_1.systemConfigurationService.getSystemConfig());
 }

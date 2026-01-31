@@ -9,4 +9,6 @@ router.post("/device/:id", system_controller_1.setDevice);
 router.get("/devices", system_controller_1.getDevices);
 router.post("/devices", system_controller_1.addDevice);
 router.delete("/devices/:id", system_controller_1.deleteDevice);
+router.get("/config", system_controller_1.getSystemConfig);
+router.post("/config", system_controller_1.updateSystemConfig);
 exports.default = router;
