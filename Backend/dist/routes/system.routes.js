@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const system_controller_1 = require("../controllers/system.controller");
+const router = (0, express_1.Router)();
+router.get("/state", system_controller_1.getState);
+router.post("/override", system_controller_1.setOverride);
+router.post("/device/:id", system_controller_1.setDevice);
+router.get("/devices", system_controller_1.getDevices);
+router.post("/devices", system_controller_1.addDevice);
+router.delete("/devices/:id", system_controller_1.deleteDevice);
+exports.default = router;
