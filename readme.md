@@ -1,86 +1,160 @@
-# ☀️ Solar-Scheduler
+# Solar Energy Scheduler
 
-An intelligent, full-stack solar energy management system that predicts solar generation and optimizes device scheduling based on battery state and user priorities.
+An intelligent, prediction-driven decision engine for managing off-grid solar energy systems. This system optimizes device usage based on real-time solar forecasts, battery levels, and user-defined priorities.
 
----
+## 1. Project Overview
 
-## 🏗️ Project Architecture
+**The Problem:** Traditional off-grid solar systems lack intelligence. They often drain batteries blindly or waste potential solar energy when batteries are full. Users must manually toggle appliances based on guesswork.
 
-The system is divided into three main components:
+**Our Solution:** The Solar Energy Scheduler acts as the "brain" of the solar setup. It uses Machine Learning to forecast solar potential, simulates energy availability for the next 15 minutes, and actively manages loads to ensure:
+*   **Critical devices** (e.g., security, fridge) always run.
+*   **Flexible devices** run only when energy is sufficient.
+*   **Battery health** is preserved by preventing deep depletion (Survival Mode).
 
-- **[ML_Engine](./ML_Engine):** Python-based forecasting core using ARIMA + Persistence ensembles to predict solar output (kW).
-- **[Backend](./Backend):** Node.js/TypeScript server that manages device states, battery monitoring, and bridges to the ML Engine.
-- **Frontend (Upcoming):** React-based dashboard for real-time visualization and manual overrides.
+## 2. High-Level Architecture
 
----
+The system is composed of three distinct modules working in harmony:
 
-## 📂 Root Directory Structure
+1.  **ML Engine (Python)**
+    *   Ingests historical solar data and weather conditions.
+    *   Generates a solar generation potential forecast (kW/m² or normalized coeff).
+    *   Writes forecasts to a shared interface file (`ml_forecast.json`).
 
-```text
-Solar-Scheduler/
-├── ML_Engine/          # Python Forecasting Module
-│   ├── src/            # Core ML algorithms
-│   ├── api/            # Internal service wrappers
-│   ├── data/           # Historical CSV datasets
-│   ├── tests/          # Unit test suite
-│   └── cli.py          # Integration interface
-├── Backend/            # Node.js API & Scheduler
-│   ├── src/            # Application logic
-│   └── test/           # Backend tests
-├── .gitignore          # Project-wide ignores
-└── readme.md           # This file
+2.  **Backend (Node.js + TypeScript)**
+    *   **Decision Engine**: Runs every 15 minutes (tick).
+    *   **Solar Service**: Reads ML forecasts and converts them to actual Wh based on system hardware config.
+    *   **Scheduler**: Prioritizes devices based on available energy (Battery + Solar).
+    *   **API Layer**: Exposes state and accepts configuration/overrides.
+
+3.  **Frontend (React)**
+    *   Real-time dashboard visualizing battery state, solar input, and device status.
+    *   Read-only interface for monitoring system health.
+
+**Data Flow:**
+`ML Prediction` → `JSON Interface` → `Backend Solar Service` → `Scheduler Logic` → `State Update` → `API Exposure` → `Dashboard`
+
+## 3. Core Concepts
+
+*   **15-Minute Decision Window**: The system makes scheduling decisions in discrete 15-minute blocks (`timestep`). Energy is calculated in Watt-hours (Wh) for this duration.
+*   **Device Priorities**:
+    *   **CRITICAL**: Must run. System will sacrifice battery reserves to keep these on.
+    *   **FLEXIBLE**: Run if energy > critical load + safety margin.
+    *   **OPTIONAL**: Run only if surplus energy exists (battery full + high solar).
+*   **Survival Mode**: If the battery drops to 0% (or low threshold) and solar is insufficient, the system cuts ALL non-critical loads to prevent blackout.
+*   **Energy Deficit**: If demand > supply, the system tracks the "deficit" to inform the user of shortages.
+
+## 4. System Configuration
+
+Real-world setups vary. The scheduler uses a dedicated **System Configuration Service** to adapt its math:
+
+*   `panelCapacityKw`: Actual size of the solar array (e.g., 3kW, 5kW).
+*   `batteryCapacityWh`: Total storage capacity (e.g., 5000Wh).
+*   `efficiency`: System loss factor (inverter/wiring losses, default 0.85).
+
+*Why this matters:* The ML engine predicts generic "sunniness". The backend scales this by `panelCapacityKw * efficiency` to know how much power *this specific house* will generate.
+
+## 5. Machine Learning Integration
+
+The ML Engine does not know about the user's specific hardware. It provides a **Solar Potential Forecast** (Avg kW per 1kW capacity).
+
+**Process:**
+1.  Python script (`cli.py`) runs.
+2.  Generates prediction: `avgKw1h` (e.g., 0.8 kW per installed kW).
+3.  Writes to `Backend/ml_forecast.json` with timestamp and confidence score.
+4.  Backend reads file.
+5.  **Conversion Formula**:
+    ```typescript
+    SolarForecastWh = (avgKw1h * PanelCapacity * Efficiency) * 0.25 hours
+    ```
+6.  *Fallback*: If ML file is missing or stale, the backend falls back to a conservative calculation logic.
+
+## 6. Backend APIs
+
+### System State
+**GET** `/api/state`
+Returns the complete snapshot of the system, including battery level, active devices, and active alerts.
+
+### System Configuration
+**GET** `/api/config`
+**POST** `/api/config`
+Get or update hardware parameters dynamically.
+```json
+{
+  "panelCapacityKw": 5.0,
+  "batteryCapacityWh": 10000,
+  "efficiency": 0.9
+}
 ```
 
----
+### Manual Override
+**POST** `/api/override`
+Force the system into manual mode to bypass the automated scheduler.
 
-## ⚡ ML Engine (Status: ✅ Ready)
+### Device Control
+**POST** `/api/device/:id`
+Manually toggle a device ON/OFF (requires Override Mode).
 
-The ML Engine is the "brain" of the project. It handles:
-- **48h Forecasts:** Predicting solar power in kW.
-- **Indian Date Format:** Support for `DD-MM-YYYY` inputs.
-- **Real-Time Ingestion:** Support for adding new sensor readings on the fly.
-- **Pattern Matching:** Smart fallback for out-of-range date requests.
+## 7. Example API Response
 
-### Quick Start (ML Engine):
+Response from `GET /api/state`:
+
+```json
+{
+  "batteryRemainingWh": 4200,
+  "batteryCapacityWh": 5000,
+  "systemConfig": {
+    "panelCapacityKw": 3,
+    "batteryCapacityWh": 5000,
+    "efficiency": 0.85
+  },
+  "solarForecastWh": 450.5,
+  "energyDeficitWh": 0,
+  "devices": [
+    { "id": "1", "name": "Security", "type": "CRITICAL", "powerW": 50, "isOn": true },
+    { "id": "2", "name": "AC Unit", "type": "FLEXIBLE", "powerW": 1500, "isOn": false }
+  ],
+  "warnings": [],
+  "timestepMinutes": 15
+}
+```
+
+## 8. Running the Project Locally
+
+### Prerequisites
+*   Node.js (v18+)
+*   Python (v3.9+)
+
+### A. Run ML Engine (Generate Forecast)
 ```bash
 cd ML_Engine
-pip install -r requirements.txt
-python cli.py --weather sunny --format text
+# Run standard forecast (updates ml_forecast.json)
+python cli.py --weather sunny
 ```
 
----
+### B. Run Backend
+```bash
+cd Backend
+npm install
+npm run dev
+# Server starts at http://localhost:3000
+```
 
-## ⚙️ Backend Integration (Status: �️ In Progress)
+### C. Run Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+# Dashboard available at http://localhost:5173
+```
 
-The Backend bridges the physical hardware (simulated or real) with the ML forecasts.
-- **Tech Stack:** Node.js, TypeScript, Express.
-- **Bridge:** Uses `child_process` to call Python CLI scripts.
-- **State Management:** Manages device priorities (CRITICAL, FLEXIBLE, OPTIONAL).
+## 9. Why This Solution Is Different
 
----
+1.  **Separation of Concerns**: ML focuses on weather/irradiance. Backend focuses on physics (batteries, loads). Frontend focuses on visualization.
+2.  **Robust Fallbacks**: The system continues to operate safely even if the ML service goes offline.
+3.  **Realistic Hardware Modeling**: We don't just predict "power"; we model the efficiency losses and actual capacity of the installation.
 
-## � Features at a Glance
+## 10. Future Improvements
 
-- **ARIMA Ensemble:** Hybrid statistical modeling for accurate solar paths.
-- **Dynamic Scheduling:** 15-minute polling interval for device optimization.
-- **Battery Protection:** Automatic shutoff of non-critical loads during low solar/battery scenarios.
-- **Interactive Testing:** Built-in dashboard simulator for manual validation.
-
----
-
-## �️ Installation & Setup
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/VipulMadavi/Solar-Scheduler.git
-   ```
-
-2. **Setup ML Engine:**
-   Refer to the [ML_Engine README](./ML_Engine/README.md) for detailed Python setup.
-
-3. **Setup Backend:**
-   Refer to the [Backend README](./Backend/README.md) (coming soon) for Node.js setup.
-
----
-
-*Built with ❤️ for GE-2 HackNagpur | Vipul Madavi*
+*   **Microservice Deployment**: Wrap the Python CLI in a Flask/FastAPI container for live querying.
+*   **Cost Optimization**: Integrate grid pricing to charge batteries from the grid during off-peak hours.
+*   **Historical Analytics**: Store past performance to refine the user's specific efficiency rating over time (Self-Learning).
