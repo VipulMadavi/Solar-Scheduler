@@ -68,55 +68,162 @@ The ML Engine does not know about the user's specific hardware. It provides a **
     ```
 6.  *Fallback*: If ML file is missing or stale, the backend falls back to a conservative calculation logic.
 
-## 6. Backend APIs
+## 6. Backend API Reference
 
-### System State
-**GET** `/api/state`
-Returns the complete snapshot of the system, including battery level, active devices, and active alerts.
+The backend exposes a RESTful API for monitoring system state, managing devices, and configuring hardware parameters.
 
-### System Configuration
-**GET** `/api/config`
-**POST** `/api/config`
-Get or update hardware parameters dynamically.
-```json
-{
-  "panelCapacityKw": 5.0,
-  "batteryCapacityWh": 10000,
-  "efficiency": 0.9
-}
-```
+### 1. System State
 
-### Manual Override
-**POST** `/api/override`
-Force the system into manual mode to bypass the automated scheduler.
+#### GET `/api/state`
+Retrieves the real-time snapshot of the entire system, including battery levels, solar forecast, device statuses, and any active warnings.
 
-### Device Control
-**POST** `/api/device/:id`
-Manually toggle a device ON/OFF (requires Override Mode).
+*   **Response (JSON)**
+    ```json
+    {
+      "batteryRemainingWh": 4500,
+      "batteryCapacityWh": 5000,
+      "solarForecastWh": 320.5,
+      "energyDeficitWh": 0,
+      "overrideMode": false,
+      "timestepMinutes": 15,
+      "warnings": [
+        "Battery depleted",
+        "System running in survival mode (critical loads only)"
+      ],
+      "systemConfig": {
+        "panelCapacityKw": 3,
+        "batteryCapacityWh": 5000,
+        "efficiency": 0.85
+      },
+      "devices": [
+        {
+          "id": "1",
+          "name": "Refrigerator",
+          "powerW": 200,
+          "type": "CRITICAL",
+          "isOn": true
+        }
+      ],
+      "windowStart": "2026-02-01T10:00:00.000Z",
+      "windowEnd": "2026-02-01T10:15:00.000Z"
+    }
+    ```
 
-## 7. Example API Response
+### 2. System Configuration
 
-Response from `GET /api/state`:
+#### GET `/api/config`
+Returns the current hardware configuration parameters used for energy calculations.
 
-```json
-{
-  "batteryRemainingWh": 4200,
-  "batteryCapacityWh": 5000,
-  "systemConfig": {
-    "panelCapacityKw": 3,
-    "batteryCapacityWh": 5000,
-    "efficiency": 0.85
-  },
-  "solarForecastWh": 450.5,
-  "energyDeficitWh": 0,
-  "devices": [
-    { "id": "1", "name": "Security", "type": "CRITICAL", "powerW": 50, "isOn": true },
-    { "id": "2", "name": "AC Unit", "type": "FLEXIBLE", "powerW": 1500, "isOn": false }
-  ],
-  "warnings": [],
-  "timestepMinutes": 15
-}
-```
+*   **Response (JSON)**
+    ```json
+    {
+      "panelCapacityKw": 3,
+      "batteryCapacityWh": 5000,
+      "efficiency": 0.85
+    }
+    ```
+
+#### POST `/api/config`
+Updates system hardware parameters. Supports partial updates (you can send just one field).
+
+*   **Request Body**
+    *   `panelCapacityKw` (optional, number > 0): Total solar panel capacity in kW.
+    *   `batteryCapacityWh` (optional, number > 0): Total battery storage in Wh.
+    *   `efficiency` (optional, number 0-1): System efficiency factor.
+
+    ```json
+    {
+      "panelCapacityKw": 5.5,
+      "efficiency": 0.9
+    }
+    ```
+
+*   **Response (JSON)**: Returns the updated configuration object.
+
+### 3. Manual Override
+
+#### POST `/api/override`
+Enables or disables manual override mode. When enabled, the scheduler stops automatic switching, allowing the user to manually toggle devices.
+
+*   **Request Body**
+    *   `overrideMode` (required, boolean): `true` to enable manual control, `false` to resume auto-scheduling.
+
+    ```json
+    {
+      "overrideMode": true
+    }
+    ```
+
+*   **Response (JSON)**
+    ```json
+    {
+      "overrideMode": true
+    }
+    ```
+*   **Side Effects**: Pauses/Resumes the automated 15-minute decision engine.
+
+### 4. Device Management
+
+#### GET `/api/devices`
+Returns a list of all registered devices in the system.
+
+*   **Response (JSON)**
+    ```json
+    [
+      {
+        "id": "1",
+        "name": "Security System",
+        "powerW": 50,
+        "type": "CRITICAL",
+        "isOn": true
+      }
+    ]
+    ```
+
+#### POST `/api/devices`
+Adds a new device to the scheduler.
+
+*   **Request Body**
+    *   `name` (required, string): Device name.
+    *   `powerW` (required, number): Power consumption in Watts.
+    *   `type` (required, string): Priority level (`CRITICAL`, `FLEXIBLE`, or `OPTIONAL`).
+
+    ```json
+    {
+      "name": "Electric Heater",
+      "powerW": 1500,
+      "type": "FLEXIBLE"
+    }
+    ```
+
+*   **Response (JSON)**: Returns the created device object with a generated `id`.
+
+#### DELETE `/api/devices/:id`
+Removes a device from the system.
+
+*   **Response (JSON)**
+    ```json
+    {
+      "message": "Device deleted"
+    }
+    ```
+
+### 5. Device Control
+
+#### POST `/api/device/:id`
+Manually turns a specific device ON or OFF.
+**Note:** This endpoint returns a `403 Forbidden` error if `overrideMode` is not set to `true`.
+
+*   **Request Body**
+    *   `isOn` (required, boolean): Target status.
+
+    ```json
+    {
+      "isOn": true
+    }
+    ```
+
+*   **Response (JSON)**: Returns the updated device object.
 
 ## 8. Running the Project Locally
 
