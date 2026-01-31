@@ -1,7 +1,7 @@
 
 CONFIG = {
     "forecast_method": "arima",       # persistence, arima
-    "horizon_hours": 24,
+    "horizon_hours": 48,              # Extended to 48 hours for better coverage
     "train_days": 7,
     "arima_order": (2, 1, 2),
     "arima_seasonal": (1, 1, 1, 24),

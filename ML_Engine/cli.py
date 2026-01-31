@@ -7,14 +7,21 @@ Called via: child_process.spawn('python', ['cli.py', '--weather', 'sunny', ...])
 
 Usage Examples:
     python cli.py --weather sunny --format json
-    python cli.py --target "2026-02-01 14:00" --weather cloudy
-    python cli.py --horizon 6 --format text
+    python cli.py --target "01-02-2026 14:00" --weather cloudy
+    python cli.py --horizon 48 --format text
+    
+Date Format: DD-MM-YYYY HH:MM (Indian format)
+Output: Power in kW
 """
 import argparse
 import json
 import sys
+import warnings
 from pathlib import Path
 from datetime import datetime
+
+# Suppress warnings for cleaner output
+warnings.filterwarnings('ignore')
 
 # Ensure imports work from any directory
 ML_ENGINE_ROOT = Path(__file__).parent
@@ -25,64 +32,100 @@ from src.forecast_solar import forecast_solar
 from src.config import CONFIG
 
 
-def get_cumulative_forecast(forecast_series):
+def parse_datetime(datetime_str):
     """
-    Calculate cumulative energy (Wh) for different time horizons
-    
-    Args:
-        forecast_series: pandas Series of hourly kW predictions
-    
-    Returns:
-        dict: Energy totals for 15min, 1h, 6h, 24h
+    Parse datetime string - supports multiple formats
+    Primary: DD-MM-YYYY HH:MM (Indian format)
+    Fallback: YYYY-MM-DD HH:MM (ISO format)
     """
-    total_hours = len(forecast_series)
-    return {
-        "next15minWh": round(float(forecast_series.iloc[0]) / 4, 2),  # 1/4 of first hour
-        "next1hWh": round(float(forecast_series.iloc[0]), 2),
-        "next6hWh": round(float(forecast_series.iloc[:min(6, total_hours)].sum()), 2),
-        "next24hWh": round(float(forecast_series.sum()), 2),
-    }
+    import pandas as pd
+    
+    # Try Indian format first
+    formats = [
+        "%d-%m-%Y %H:%M",  # Indian: 01-02-2026 14:00
+        "%d/%m/%Y %H:%M",  # Indian alt: 01/02/2026 14:00
+        "%Y-%m-%d %H:%M",  # ISO: 2026-02-01 14:00
+        "%Y-%m-%dT%H:%M",  # ISO-T: 2026-02-01T14:00
+    ]
+    
+    for fmt in formats:
+        try:
+            return datetime.strptime(datetime_str, fmt)
+        except ValueError:
+            continue
+    
+    # Last resort - let pandas try
+    try:
+        return pd.to_datetime(datetime_str).to_pydatetime()
+    except:
+        raise ValueError(f"Cannot parse datetime: {datetime_str}. Use DD-MM-YYYY HH:MM format.")
 
 
 def get_forecast_for_target(csv_file, target_datetime_str, method=None):
     """
-    Get forecast for a specific target datetime
-    
-    Args:
-        csv_file: Path to CSV data file
-        target_datetime_str: Target datetime string (e.g., "2026-02-01 14:00")
-        method: Forecast method ('arima', 'persistence', or None for ensemble)
+    Get forecast for a specific target datetime with smart time-of-day matching
     
     Returns:
-        dict: Forecast result for the target time
+        dict: Forecast result with predicted_kw
     """
     import pandas as pd
     
     df = load_solar_csv(str(csv_file))
-    forecast = forecast_solar(df, method=method)
+    forecast = forecast_solar(df, method=method, horizon=CONFIG["horizon_hours"])
     
-    target_time = pd.to_datetime(target_datetime_str)
-    closest_idx = forecast.index.get_indexer([target_time], method='nearest')[0]
+    target_time = parse_datetime(target_datetime_str)
+    target_hour = target_time.hour
+    
+    # Check if target is within forecast range
+    forecast_start = forecast.index[0]
+    forecast_end = forecast.index[-1]
+    
+    if forecast_start <= target_time <= forecast_end:
+        # Within range - use exact matching
+        closest_idx = forecast.index.get_indexer([target_time], method='nearest')[0]
+        match_type = "exact"
+    else:
+        # Outside range - use time-of-day pattern matching
+        matching_hours = [i for i, t in enumerate(forecast.index) if t.hour == target_hour]
+        if matching_hours:
+            closest_idx = matching_hours[0]
+        else:
+            closest_idx = 0
+        match_type = "pattern"
     
     predicted_kw = float(forecast.iloc[closest_idx])
     
+    # Get next 6 hours forecast
+    next_hours = []
+    for i in range(min(6, len(forecast) - closest_idx)):
+        hr = forecast.index[closest_idx + i].hour
+        kw = round(float(forecast.iloc[closest_idx + i]), 2)
+        next_hours.append({"hour": f"{hr:02d}:00", "kw": kw})
+    
     return {
-        "target_time": target_time.isoformat(),
-        "forecast_time": forecast.index[closest_idx].isoformat(),
+        "target_time": target_time.strftime("%d-%m-%Y %H:%M"),
+        "target_hour": target_hour,
         "predicted_kw": round(predicted_kw, 2),
-        "predicted_kwh": round(predicted_kw, 2),  # 1 hour slot
+        "match_type": match_type,
+        "next_hours_kw": next_hours,
+        "forecast_window": {
+            "start": forecast_start.strftime("%d-%m-%Y %H:%M"),
+            "end": forecast_end.strftime("%d-%m-%Y %H:%M")
+        }
     }
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Solar Forecast CLI for Backend Integration',
+        description='Solar Forecast CLI for Backend Integration (kW output)',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   python cli.py --weather sunny --format json
-  python cli.py --target "2026-02-01 14:00" --weather cloudy
-  python cli.py --horizon 6 --format text
+  python cli.py --target "01-02-2026 14:00" --weather cloudy
+  python cli.py --horizon 48 --format text
+
+Date Format: DD-MM-YYYY HH:MM (Indian format)
         """
     )
     
@@ -95,8 +138,8 @@ Examples:
     parser.add_argument(
         '--horizon', 
         type=int, 
-        default=24,
-        help='Forecast horizon in hours (default: 24)'
+        default=CONFIG["horizon_hours"],
+        help=f'Forecast horizon in hours (default: {CONFIG["horizon_hours"]})'
     )
     parser.add_argument(
         '--method', 
@@ -108,7 +151,7 @@ Examples:
         '--target', 
         type=str, 
         default=None,
-        help='Target datetime for specific forecast (e.g., "2026-02-01 14:00")'
+        help='Target datetime (DD-MM-YYYY HH:MM format, e.g., "01-02-2026 14:00")'
     )
     parser.add_argument(
         '--format', 
@@ -136,19 +179,28 @@ Examples:
         df = load_solar_csv(str(csv_file))
         forecast = forecast_solar(df, method=args.method, horizon=args.horizon)
         
-        # Build result
+        # Data range info
+        data_start = df.index[0].strftime("%d-%m-%Y")
+        data_end = df.index[-1].strftime("%d-%m-%Y")
+        
+        # Build result - kW based
         result = {
             "status": "success",
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
             "weather": args.weather,
             "method": args.method or "ensemble",
             "horizon_hours": args.horizon,
             "confidence": 0.87,
-            "config": {
-                "blend_ratio": CONFIG["blend_ratio"],
-                "arima_order": CONFIG["arima_order"],
+            "data_range": {
+                "start": data_start,
+                "end": data_end
             },
-            **get_cumulative_forecast(forecast),
+            "forecast_kw": {
+                "hour_1": round(float(forecast.iloc[0]), 2),
+                "hour_6_avg": round(float(forecast.iloc[:min(6, len(forecast))].mean()), 2),
+                "hour_24_avg": round(float(forecast.iloc[:min(24, len(forecast))].mean()), 2),
+                "hour_48_avg": round(float(forecast.mean()), 2),
+            },
             "hourly_forecast_kw": [round(x, 2) for x in forecast.tolist()]
         }
         
@@ -162,25 +214,31 @@ Examples:
         if args.format == 'json':
             print(json.dumps(result, indent=2))
         else:
-            print("=" * 40)
-            print(f"☀️  SOLAR FORECAST ({args.weather.upper()})")
-            print("=" * 40)
-            print(f"⏰ Generated: {result['timestamp'][:19]}")
+            print("=" * 50)
+            print(f"☀️  SOLAR FORECAST ({args.weather.upper()}) - kW")
+            print("=" * 50)
+            print(f"⏰ Generated: {result['timestamp']}")
             print(f"📊 Method: {result['method']}")
             print(f"📈 Confidence: {result['confidence']*100:.0f}%")
-            print("-" * 40)
-            print(f"⚡ Next 15 min:  {result['next15minWh']:>8.2f} Wh")
-            print(f"⚡ Next 1 hour:  {result['next1hWh']:>8.2f} Wh")
-            print(f"⚡ Next 6 hours: {result['next6hWh']:>8.2f} Wh")
-            print(f"⚡ Next 24 hours:{result['next24hWh']:>8.2f} Wh")
+            print(f"📅 Data: {data_start} to {data_end}")
+            print("-" * 50)
+            print(f"⚡ Hour 1:        {result['forecast_kw']['hour_1']:>8.2f} kW")
+            print(f"⚡ Avg (6h):      {result['forecast_kw']['hour_6_avg']:>8.2f} kW")
+            print(f"⚡ Avg (24h):     {result['forecast_kw']['hour_24_avg']:>8.2f} kW")
+            print(f"⚡ Avg (48h):     {result['forecast_kw']['hour_48_avg']:>8.2f} kW")
             
             if args.target and "target_forecast" in result:
                 tf = result["target_forecast"]
-                print("-" * 40)
+                print("-" * 50)
                 print(f"🎯 Target: {tf['target_time']}")
                 print(f"   Predicted: {tf['predicted_kw']:.2f} kW")
+                print(f"   Match: {tf['match_type']}")
+                if tf['next_hours_kw']:
+                    print("   Next hours:")
+                    for h in tf['next_hours_kw'][:4]:
+                        print(f"     {h['hour']}: {h['kw']:.2f} kW")
             
-            print("=" * 40)
+            print("=" * 50)
             
     except Exception as e:
         error = {
