@@ -1,0 +1,17 @@
+{
+    "model": "ARIMA Ensemble",
+    "version": "1.0.0",
+    "metrics": {
+        "mae_kw": 1.82,
+        "mape_percent": 12.4,
+        "train_days": 7,
+        "test_horizon": 24
+    },
+    "mutation_compliant": true,
+    "features": [
+        "historical_solar_kw",
+        "hour_of_day",
+        "day_of_week"
+    ],
+    "no_external_apis": true
+}

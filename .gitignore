@@ -1,1 +1,14 @@
-.cursor
+# IDE
+.cursor/
+
+# Python virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+
+# Pytest cache
+.pytest_cache/
+
+#test files
+ML_Engine\test_interactive.py

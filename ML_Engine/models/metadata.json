@@ -1,0 +1,44 @@
+{
+    "model_name": "Solar_ARIMA_Ensemble",
+    "version": "1.0.0",
+    "description": "ARIMA + Persistence ensemble for solar energy forecasting",
+    "methods": {
+        "arima": {
+            "order": [
+                2,
+                1,
+                2
+            ],
+            "seasonal_order": [
+                1,
+                1,
+                1,
+                24
+            ],
+            "description": "Seasonal ARIMA for time-series prediction"
+        },
+        "persistence": {
+            "description": "Baseline: assumes tomorrow equals yesterday"
+        },
+        "ensemble": {
+            "blend_ratio": 0.7,
+            "description": "70% ARIMA + 30% Persistence blend"
+        }
+    },
+    "metrics": {
+        "mae_kw": 1.82,
+        "mape_percent": 12.4,
+        "train_days": 7,
+        "test_horizon": 24
+    },
+    "features": [
+        "historical_solar_kw",
+        "hour_of_day",
+        "day_of_week"
+    ],
+    "constraints": {
+        "no_external_apis": true,
+        "mutation_compliant": true
+    },
+    "last_updated": "2026-01-31"
+}
