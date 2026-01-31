@@ -7,13 +7,38 @@ import { state } from "../services/state.service";
  * Return current system state
  */
 export function getState(req: Request, res: Response): void {
+  const warnings: string[] = [];
+  
+  // Check for battery depletion
+  if (state.batteryRemainingWh === 0) {
+    warnings.push("Battery depleted");
+  }
+  
+  // Check for energy deficit
+  if (state.energyDeficitWh > 0) {
+    warnings.push("Insufficient energy to sustain current loads");
+    
+    // Check if only CRITICAL devices are ON
+    const devicesOn = state.devices.filter(d => d.isOn);
+    const onlyCriticalOn = devicesOn.length > 0 && devicesOn.every(d => d.type === "CRITICAL");
+    
+    if (onlyCriticalOn) {
+      warnings.push("System running in survival mode (critical loads only)");
+    }
+  }
+  
   res.json({
     batteryRemainingWh: state.batteryRemainingWh,
     batteryCapacityWh: state.batteryCapacityWh,
+    windowStart: state.windowStart,
+    windowEnd: state.windowEnd,
+    timestepMinutes: state.timestepMinutes,
     devices: state.devices,
     overrideMode: state.overrideMode,
     lastSolarForecastWh: state.lastSolarForecastWh,
     energyDeficitWh: state.energyDeficitWh,
+    solarForecastWh: state.lastSolarForecastWh,
+    warnings,
   });
 }
 

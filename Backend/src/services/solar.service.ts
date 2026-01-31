@@ -6,5 +6,5 @@
 export function getNextSolarForecastWh(): number {
   // Random value between 0 and 2000 Wh (realistic for 15-minute window)
   // Can be replaced with actual ML prediction
-  return 10;
+  return 100;
 }

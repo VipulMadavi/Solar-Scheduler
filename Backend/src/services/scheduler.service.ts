@@ -30,4 +30,8 @@ export function runSchedulerTick(): void {
   state.batteryRemainingWh = output.batteryRemainingWh;
   state.devices = output.devices;
   state.lastSolarForecastWh = solarForecastWh;
+  
+  // Update time window metadata
+  state.windowStart = new Date().toISOString();
+  state.windowEnd = new Date(Date.now() + state.timestepMinutes * 60 * 1000).toISOString();
 }

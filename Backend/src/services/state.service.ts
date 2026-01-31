@@ -17,4 +17,7 @@ export const state = {
   overrideMode: false,
   lastSolarForecastWh: 0,
   energyDeficitWh: 0,
+  timestepMinutes: 15,
+  windowStart: new Date().toISOString(),
+  windowEnd: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
 };
