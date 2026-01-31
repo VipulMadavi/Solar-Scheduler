@@ -9,16 +9,18 @@ Usage Examples:
     python cli.py --weather sunny --format json
     python cli.py --target "01-02-2026 14:00" --weather cloudy
     python cli.py --horizon 48 --format text
+    python cli.py --next 15 --unit wh --format json
+    python cli.py --target "01-02-2026 14:00" --unit wh --interval 15min
     
 Date Format: DD-MM-YYYY HH:MM (Indian format)
-Output: Power in kW
+Output Units: kW (power) or Wh (energy)
 """
 import argparse
 import json
 import sys
 import warnings
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Suppress warnings for cleaner output
 warnings.filterwarnings('ignore')
@@ -28,7 +30,7 @@ ML_ENGINE_ROOT = Path(__file__).parent
 sys.path.insert(0, str(ML_ENGINE_ROOT))
 
 from src.data_utils import load_solar_csv
-from src.forecast_solar import forecast_solar
+from src.forecast_solar import forecast_solar, convert_kw_to_wh
 from src.config import CONFIG
 
 
@@ -61,17 +63,23 @@ def parse_datetime(datetime_str):
         raise ValueError(f"Cannot parse datetime: {datetime_str}. Use DD-MM-YYYY HH:MM format.")
 
 
-def get_forecast_for_target(csv_file, target_datetime_str, method=None):
+def get_unit_label(unit):
+    """Get display label for unit."""
+    return "Wh" if unit == "wh" else "kW"
+
+
+def get_forecast_for_target(csv_file, target_datetime_str, method=None, unit="kw", interval="1h"):
     """
     Get forecast for a specific target datetime with smart time-of-day matching
     
     Returns:
-        dict: Forecast result with predicted_kw
+        dict: Forecast result with predicted value in specified unit
     """
     import pandas as pd
     
     df = load_solar_csv(str(csv_file))
-    forecast = forecast_solar(df, method=method, horizon=CONFIG["horizon_hours"])
+    forecast = forecast_solar(df, method=method, horizon=CONFIG["horizon_hours"], 
+                              interval=interval, unit=unit)
     
     target_time = parse_datetime(target_datetime_str)
     target_hour = target_time.hour
@@ -93,21 +101,25 @@ def get_forecast_for_target(csv_file, target_datetime_str, method=None):
             closest_idx = 0
         match_type = "pattern"
     
-    predicted_kw = float(forecast.iloc[closest_idx])
+    predicted_value = float(forecast.iloc[closest_idx])
+    unit_label = get_unit_label(unit)
     
-    # Get next 6 hours forecast
-    next_hours = []
-    for i in range(min(6, len(forecast) - closest_idx)):
-        hr = forecast.index[closest_idx + i].hour
-        kw = round(float(forecast.iloc[closest_idx + i]), 2)
-        next_hours.append({"hour": f"{hr:02d}:00", "kw": kw})
+    # Get next intervals forecast
+    next_intervals = []
+    interval_count = 6 if interval == "1h" else 4  # 6 hours or 4 x 15min = 1 hour
+    for i in range(min(interval_count, len(forecast) - closest_idx)):
+        time_str = forecast.index[closest_idx + i].strftime("%H:%M")
+        value = round(float(forecast.iloc[closest_idx + i]), 2)
+        next_intervals.append({"time": time_str, f"value_{unit}": value})
     
     return {
         "target_time": target_time.strftime("%d-%m-%Y %H:%M"),
         "target_hour": target_hour,
-        "predicted_kw": round(predicted_kw, 2),
+        f"predicted_{unit}": round(predicted_value, 2),
+        "unit": unit_label,
+        "interval": interval,
         "match_type": match_type,
-        "next_hours_kw": next_hours,
+        "next_intervals": next_intervals,
         "forecast_window": {
             "start": forecast_start.strftime("%d-%m-%Y %H:%M"),
             "end": forecast_end.strftime("%d-%m-%Y %H:%M")
@@ -115,17 +127,85 @@ def get_forecast_for_target(csv_file, target_datetime_str, method=None):
     }
 
 
+def get_next_minutes_forecast(csv_file, next_minutes=15, method=None, unit="wh", weather="sunny"):
+    """
+    Get forecast for the next N minutes from current time.
+    This is the main function backend will call on each 15-minute refresh.
+    
+    Args:
+        csv_file: Path to historical data CSV
+        next_minutes: How many minutes ahead to forecast (default: 15)
+        method: Forecasting method
+        unit: Output unit ("kw" or "wh")
+        weather: Weather scenario
+    
+    Returns:
+        dict: Forecast for next interval(s)
+    """
+    import pandas as pd
+    
+    df = load_solar_csv(str(csv_file))
+    
+    # Always use 15-minute intervals for this mode
+    interval = "15min"
+    forecast = forecast_solar(df, method=method, horizon=CONFIG["horizon_hours"], 
+                              interval=interval, unit=unit)
+    
+    # Get current time and find matching forecast points
+    now = datetime.now()
+    
+    # Find the closest forecast point to now
+    try:
+        closest_idx = forecast.index.get_indexer([now], method='nearest')[0]
+    except:
+        closest_idx = 0
+    
+    # Calculate how many 15-minute intervals we need
+    num_intervals = max(1, next_minutes // 15)
+    
+    unit_label = get_unit_label(unit)
+    intervals = []
+    
+    for i in range(num_intervals):
+        if closest_idx + i < len(forecast):
+            time_point = forecast.index[closest_idx + i]
+            value = round(float(forecast.iloc[closest_idx + i]), 2)
+            intervals.append({
+                "time": time_point.strftime("%H:%M"),
+                "datetime": time_point.strftime("%d-%m-%Y %H:%M"),
+                f"value_{unit}": value
+            })
+    
+    # Get primary value (first interval)
+    primary_value = intervals[0][f"value_{unit}"] if intervals else 0
+    
+    return {
+        "status": "success",
+        "timestamp": now.strftime("%d-%m-%Y %H:%M:%S"),
+        "weather": weather,
+        "next_minutes": next_minutes,
+        "unit": unit_label,
+        "interval": "15min",
+        f"forecast_{unit}": primary_value,
+        "next_intervals": intervals,
+        "confidence": 0.87
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description='Solar Forecast CLI for Backend Integration (kW output)',
+        description='Solar Forecast CLI for Backend Integration',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   python cli.py --weather sunny --format json
   python cli.py --target "01-02-2026 14:00" --weather cloudy
   python cli.py --horizon 48 --format text
+  python cli.py --next 15 --unit wh --format json
+  python cli.py --target "01-02-2026 14:00" --unit wh --interval 15min
 
 Date Format: DD-MM-YYYY HH:MM (Indian format)
+Output Units: kw (kilowatts - power) | wh (watt-hours - energy)
         """
     )
     
@@ -160,6 +240,30 @@ Date Format: DD-MM-YYYY HH:MM (Indian format)
         help='Output format (default: json)'
     )
     
+    # NEW: Output unit selection
+    parser.add_argument(
+        '--unit',
+        choices=['kw', 'wh'],
+        default='kw',
+        help='Output unit: kw (kilowatts - power) or wh (watt-hours - energy) (default: kw)'
+    )
+    
+    # NEW: Forecast interval selection
+    parser.add_argument(
+        '--interval',
+        choices=['1h', '15min'],
+        default='1h',
+        help='Forecast interval: 1h (hourly) or 15min (15-minute) (default: 1h)'
+    )
+    
+    # NEW: Next N minutes mode (for backend refresh)
+    parser.add_argument(
+        '--next',
+        type=int,
+        default=None,
+        help='Get forecast for next N minutes from now (e.g., --next 15)'
+    )
+    
     # Ingestion args
     parser.add_argument('--ingest', action='store_true', help='Ingest new data mode')
     parser.add_argument('--time', type=str, help='Reading time (DD-MM-YYYY HH:MM)')
@@ -187,8 +291,8 @@ Date Format: DD-MM-YYYY HH:MM (Indian format)
         except Exception as e:
             print(f"Ingestion error: {e}")
             sys.exit(1)
-
-    # Mode B: Forecasting (existing logic)
+    
+    # Check data file exists
     if not csv_file.exists():
         error = {
             "status": "error",
@@ -197,40 +301,99 @@ Date Format: DD-MM-YYYY HH:MM (Indian format)
         print(json.dumps(error) if args.format == 'json' else error['error'])
         sys.exit(1)
     
+    # Mode B: Next N minutes forecast (for backend refresh)
+    if args.next is not None:
+        try:
+            result = get_next_minutes_forecast(
+                csv_file, 
+                next_minutes=args.next,
+                method=args.method,
+                unit=args.unit,
+                weather=args.weather
+            )
+            
+            if args.format == 'json':
+                print(json.dumps(result, indent=2))
+            else:
+                unit_label = get_unit_label(args.unit)
+                print("=" * 50)
+                print(f"☀️  NEXT {args.next} MINUTES FORECAST ({args.weather.upper()})")
+                print("=" * 50)
+                print(f"⏰ Generated: {result['timestamp']}")
+                print(f"📊 Unit: {unit_label}")
+                print(f"📈 Confidence: {result['confidence']*100:.0f}%")
+                print("-" * 50)
+                print(f"⚡ Forecast: {result[f'forecast_{args.unit}']:>8.2f} {unit_label}")
+                if result['next_intervals']:
+                    print("-" * 50)
+                    print("📅 Next intervals:")
+                    for interval in result['next_intervals']:
+                        print(f"   {interval['time']}: {interval[f'value_{args.unit}']:.2f} {unit_label}")
+                print("=" * 50)
+            sys.exit(0)
+        except Exception as e:
+            error = {
+                "status": "error",
+                "error": str(e),
+                "type": type(e).__name__
+            }
+            print(json.dumps(error, indent=2) if args.format == 'json' else f"Error: {e}")
+            sys.exit(1)
+
+    # Mode C: Standard forecasting
     try:
         # Load data and generate forecast
         df = load_solar_csv(str(csv_file))
-        forecast = forecast_solar(df, method=args.method, horizon=args.horizon)
+        forecast = forecast_solar(df, method=args.method, horizon=args.horizon,
+                                  interval=args.interval, unit=args.unit)
         
         # Data range info
         data_start = df.index[0].strftime("%d-%m-%Y")
         data_end = df.index[-1].strftime("%d-%m-%Y")
         
-        # Build result - kW based
+        unit_label = get_unit_label(args.unit)
+        interval_label = "15min" if args.interval == "15min" else "hourly"
+        
+        # Calculate interval-aware stats
+        if args.interval == "15min":
+            # 15-minute intervals: 4 per hour
+            intervals_1h = 4
+            intervals_6h = 24
+            intervals_24h = 96
+        else:
+            # Hourly intervals
+            intervals_1h = 1
+            intervals_6h = 6
+            intervals_24h = 24
+        
+        # Build result
         result = {
             "status": "success",
             "timestamp": datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
             "weather": args.weather,
             "method": args.method or "ensemble",
             "horizon_hours": args.horizon,
+            "unit": unit_label,
+            "interval": args.interval,
             "confidence": 0.87,
             "data_range": {
                 "start": data_start,
                 "end": data_end
             },
-            "forecast_kw": {
-                "hour_1": round(float(forecast.iloc[0]), 2),
-                "hour_6_avg": round(float(forecast.iloc[:min(6, len(forecast))].mean()), 2),
-                "hour_24_avg": round(float(forecast.iloc[:min(24, len(forecast))].mean()), 2),
-                "hour_48_avg": round(float(forecast.mean()), 2),
+            f"forecast_{args.unit}": {
+                "first": round(float(forecast.iloc[0]), 2),
+                "avg_1h": round(float(forecast.iloc[:min(intervals_1h, len(forecast))].mean()), 2),
+                "avg_6h": round(float(forecast.iloc[:min(intervals_6h, len(forecast))].mean()), 2),
+                "avg_24h": round(float(forecast.iloc[:min(intervals_24h, len(forecast))].mean()), 2),
+                "avg_total": round(float(forecast.mean()), 2),
             },
-            "hourly_forecast_kw": [round(x, 2) for x in forecast.tolist()]
+            f"{interval_label}_forecast_{args.unit}": [round(x, 2) for x in forecast.tolist()]
         }
         
         # If specific target time requested, add that forecast
         if args.target:
             result["target_forecast"] = get_forecast_for_target(
-                csv_file, args.target, args.method
+                csv_file, args.target, args.method, args.unit, args.interval
             )
         
         # Output based on format
@@ -238,28 +401,31 @@ Date Format: DD-MM-YYYY HH:MM (Indian format)
             print(json.dumps(result, indent=2))
         else:
             print("=" * 50)
-            print(f"☀️  SOLAR FORECAST ({args.weather.upper()}) - kW")
+            print(f"☀️  SOLAR FORECAST ({args.weather.upper()}) - {unit_label}")
             print("=" * 50)
             print(f"⏰ Generated: {result['timestamp']}")
             print(f"📊 Method: {result['method']}")
+            print(f"📏 Interval: {interval_label}")
             print(f"📈 Confidence: {result['confidence']*100:.0f}%")
             print(f"📅 Data: {data_start} to {data_end}")
             print("-" * 50)
-            print(f"⚡ Hour 1:        {result['forecast_kw']['hour_1']:>8.2f} kW")
-            print(f"⚡ Avg (6h):      {result['forecast_kw']['hour_6_avg']:>8.2f} kW")
-            print(f"⚡ Avg (24h):     {result['forecast_kw']['hour_24_avg']:>8.2f} kW")
-            print(f"⚡ Avg (48h):     {result['forecast_kw']['hour_48_avg']:>8.2f} kW")
+            fc = result[f"forecast_{args.unit}"]
+            print(f"⚡ First:         {fc['first']:>8.2f} {unit_label}")
+            print(f"⚡ Avg (1h):      {fc['avg_1h']:>8.2f} {unit_label}")
+            print(f"⚡ Avg (6h):      {fc['avg_6h']:>8.2f} {unit_label}")
+            print(f"⚡ Avg (24h):     {fc['avg_24h']:>8.2f} {unit_label}")
+            print(f"⚡ Avg (total):   {fc['avg_total']:>8.2f} {unit_label}")
             
             if args.target and "target_forecast" in result:
                 tf = result["target_forecast"]
                 print("-" * 50)
                 print(f"🎯 Target: {tf['target_time']}")
-                print(f"   Predicted: {tf['predicted_kw']:.2f} kW")
+                print(f"   Predicted: {tf[f'predicted_{args.unit}']:.2f} {unit_label}")
                 print(f"   Match: {tf['match_type']}")
-                if tf['next_hours_kw']:
-                    print("   Next hours:")
-                    for h in tf['next_hours_kw'][:4]:
-                        print(f"     {h['hour']}: {h['kw']:.2f} kW")
+                if tf['next_intervals']:
+                    print("   Next intervals:")
+                    for iv in tf['next_intervals'][:4]:
+                        print(f"     {iv['time']}: {iv[f'value_{args.unit}']:.2f} {unit_label}")
             
             print("=" * 50)
             
