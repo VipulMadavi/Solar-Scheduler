@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Server, Settings, Sun, Moon } from "lucide-react";
+import { LayoutDashboard, Server, Settings, Sun, Moon, Database } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 
 export default function Navbar() {
@@ -46,6 +46,7 @@ export default function Navbar() {
                 <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-950/50 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
                     <NavItem to="/" icon={<LayoutDashboard size={18} />} label="Dashboard" />
                     <NavItem to="/devices" icon={<Server size={18} />} label="Devices" />
+                    <NavItem to="/historical-data" icon={<Database size={18} />} label="History" />
                     <NavItem to="/settings" icon={<Settings size={18} />} label="Settings" />
                 </div>
 

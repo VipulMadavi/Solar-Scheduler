@@ -3,6 +3,7 @@ import Navbar from "./components/Navbar";
 import Dashboard from "./pages/Dashboard";
 import DevicesPage from "./pages/DevicesPage";
 import SettingsPage from "./pages/SettingsPage";
+import HistoricalDataPage from "./pages/HistoricalDataPage";
 
 import { ToastProvider } from "./components/Toast";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -20,6 +21,7 @@ export default function App() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/devices" element={<DevicesPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/historical-data" element={<HistoricalDataPage />} />
               </Routes>
             </main>
           </div>
