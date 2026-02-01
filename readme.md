@@ -101,9 +101,10 @@ The dashboard will be available at `http://localhost:5173`.
 ```text
 Solar-Scheduler/
 ├── ML_Engine/          # Python forecasting model & CLI
+    └── data/               # Historical solar/load datasets
 ├── Backend/            # Node.js Decision Engine & API
-├── frontend/           # React dashboard UI
-└── data/               # Historical solar/load datasets
+└── frontend/           # React dashboard UI
+
 
 ```
 
