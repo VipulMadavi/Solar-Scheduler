@@ -5,7 +5,7 @@ import ForecastCard from "../components/ForecastCard";
 import OverrideToggle from "../components/OverrideToggle";
 import DeviceCard from "../components/DeviceCard";
 import SolarChart from "../components/SolarChart";
-import ScheduleTimeline from "../components/ScheduleTimeline";
+import GanttTimeline from "../components/GanttTimeline";
 import AddDeviceForm from "../components/AddDeviceForm";
 
 import {
@@ -206,8 +206,8 @@ export default function Dashboard() {
       </div>
 
 
-      {/* TIMELINE */}
-      <ScheduleTimeline devices={devices} />
+      {/* GANTT TIMELINE */}
+      <GanttTimeline devices={devices} forecast={chartData} />
 
     </div>
   );
