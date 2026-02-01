@@ -14,7 +14,8 @@ import {
   addDevice,
   deleteDevice,
   updateDevice,
-  setOverride as setOverrideApi
+  setOverride as setOverrideApi,
+  get24hForecast
 } from "../services/api";
 
 
@@ -28,16 +29,7 @@ export default function Dashboard() {
   const [forecast, setForecast] = useState(0);
   const [overrideMode, setOverrideMode] = useState(false);
   const [devices, setDevices] = useState([]);
-
-
-  /* ===============================
-     CHART DATA
-  =============================== */
-
-  const chartData = Array.from({ length: 12 }, (_, i) => ({
-    time: `${i * 2}h`,
-    value: 120 + Math.floor(Math.random() * 150),
-  }));
+  const [chartData, setChartData] = useState([]);
 
 
   /* ===============================
@@ -58,7 +50,22 @@ export default function Dashboard() {
       setOverrideMode(data.overrideMode ?? false);
 
     } catch {
-      console.log("mock fallback");
+      console.log("API fallback");
+    }
+  };
+
+
+  /* ===============================
+     FETCH 24H FORECAST
+  =============================== */
+
+  const fetch24hForecast = async () => {
+    try {
+      const res = await get24hForecast();
+      const data = res?.data?.forecast || [];
+      setChartData(data);
+    } catch {
+      console.log("Forecast fallback");
     }
   };
 
@@ -69,6 +76,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchState();
+    fetch24hForecast();
     const id = setInterval(fetchState, 8000);
     return () => clearInterval(id);
   }, []);

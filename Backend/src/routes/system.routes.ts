@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getState, setOverride, setDevice, getDevices, addDevice, deleteDevice, getSystemConfig, updateSystemConfig } from "../controllers/system.controller";
+import { getState, setOverride, setDevice, getDevices, addDevice, deleteDevice, getSystemConfig, updateSystemConfig, get24hForecast } from "../controllers/system.controller";
 
 const router = Router();
 
@@ -11,5 +11,6 @@ router.post("/devices", addDevice);
 router.delete("/devices/:id", deleteDevice);
 router.get("/config", getSystemConfig);
 router.post("/config", updateSystemConfig);
+router.get("/forecast", get24hForecast);
 
 export default router;

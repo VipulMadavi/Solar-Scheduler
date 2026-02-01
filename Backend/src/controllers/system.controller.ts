@@ -186,3 +186,66 @@ export function updateSystemConfig(req: Request, res: Response): void {
   res.json(systemConfigurationService.getSystemConfig());
 }
 
+/**
+ * GET /forecast
+ * Return 24h solar forecast with datetime labels
+ * Evaluator Feedback: Show date and time for each forecast point
+ */
+export function get24hForecast(req: Request, res: Response): void {
+  const config = systemConfigurationService.getSystemConfig();
+  const now = new Date();
+
+  // Generate 24 hourly forecast points with datetime
+  const forecast: Array<{
+    datetime: string;
+    time: string;
+    hour: number;
+    forecastWh: number;
+  }> = [];
+
+  for (let i = 0; i < 24; i++) {
+    const forecastTime = new Date(now.getTime() + i * 60 * 60 * 1000);
+    const hour = forecastTime.getHours();
+
+    // Solar curve: peaks at noon (hour 12), zero at night
+    // Using sine wave approximation for solar generation
+    let solarMultiplier = 0;
+    if (hour >= 6 && hour <= 18) {
+      // Daylight hours: 6 AM to 6 PM
+      // Peak at noon (hour 12)
+      const dayProgress = (hour - 6) / 12; // 0 to 1
+      solarMultiplier = Math.sin(dayProgress * Math.PI);
+    }
+
+    // Calculate Wh for 1-hour period
+    // Formula: panelCapacity (kW) * 1000 * efficiency * solarMultiplier * 1 hour
+    const forecastWh = Math.round(
+      config.panelCapacityKw * 1000 * config.efficiency * solarMultiplier
+    );
+
+    // Format datetime for display (DD/MM HH:MM)
+    const dateStr = forecastTime.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: '2-digit'
+    });
+    const timeStr = forecastTime.toLocaleTimeString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+
+    forecast.push({
+      datetime: `${dateStr} ${timeStr}`,
+      time: timeStr,
+      hour: hour,
+      forecastWh: forecastWh
+    });
+  }
+
+  res.json({
+    generatedAt: now.toISOString(),
+    panelCapacityKw: config.panelCapacityKw,
+    efficiency: config.efficiency,
+    forecast: forecast
+  });
+}

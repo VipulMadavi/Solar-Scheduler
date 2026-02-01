@@ -74,3 +74,12 @@ export const updateConfig = async (config) => {
     const response = await axios.post(`${API_BASE}/config`, config);
     return response;
 };
+
+// =============================================
+// FORECAST
+// =============================================
+
+export const get24hForecast = async () => {
+    const response = await axios.get(`${API_BASE}/forecast`);
+    return response;
+};
