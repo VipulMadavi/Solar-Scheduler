@@ -1,6 +1,4 @@
 # ☀️ Solar-Scheduler: The Intelligent Brain for Off-Grid Living
-
-[![Hackathon Submission](https://img.shields.io/badge/Hackathon-Submission-orange)](https://github.com/VipulMadavi/Solar-Scheduler)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-v18%2B-green)](https://nodejs.org/)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](https://www.python.org/)
@@ -61,7 +59,7 @@ graph TD
 
 -   **Backend**: Node.js, Express, TypeScript
 -   **Frontend**: React (Vite), Tailwind CSS, Lucide Icons, Recharts
--   **Data Science**: Python, Pandas, Scikit-learn (for the prediction model)
+-   **ML_Engine**: Python, Pandas, ARIMA(for forecasting )
 -   **Communication**: JSON-based inter-process communication
 
 ---
@@ -105,8 +103,8 @@ Solar-Scheduler/
 ├── ML_Engine/          # Python forecasting model & CLI
 ├── Backend/            # Node.js Decision Engine & API
 ├── frontend/           # React dashboard UI
-├── data/               # Historical solar/load datasets
-└── docs/               # Technical specifications & design docs
+└── data/               # Historical solar/load datasets
+
 ```
 
 ---
@@ -130,13 +128,8 @@ The system math adapts to your specific hardware. Configure these in the backend
 -   [ ] **Mobile App**: Native iOS/Android app for remote management.
 -   [ ] **Edge Deployment**: Support for Raspberry Pi and ESP32 controllers.
 
----
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
 ---
 
-### Developed for [Hackathon Name] 2026
-Built with ❤️ by the Solar-Scheduler Team.
+### Developed for HackNagpur 2.0
+Built with ❤️ by the CodeTailors Team.
