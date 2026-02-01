@@ -26,24 +26,24 @@ export default function AddDeviceForm({ onAdd }) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-slate-800 p-5 rounded-xl shadow-xl border border-slate-700/50 space-y-4"
+      className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-md dark:shadow-xl border border-slate-200 dark:border-slate-700/50 space-y-4"
     >
       {/* Device Name */}
       <div>
-        <label className="block text-sm font-medium text-slate-400 mb-1.5">
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-400 mb-1.5">
           Device Name
         </label>
         <input
           placeholder="e.g., Water Heater"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full p-2.5 rounded-lg bg-slate-700 border border-slate-600 text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+          className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:outline-none transition-colors"
         />
       </div>
 
       {/* Power Input */}
       <div>
-        <label className="block text-sm font-medium text-slate-400 mb-1.5">
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-400 mb-1.5">
           Power Consumption (W)
         </label>
         <input
@@ -51,19 +51,19 @@ export default function AddDeviceForm({ onAdd }) {
           placeholder="e.g., 1500"
           value={power}
           onChange={(e) => setPower(e.target.value)}
-          className="w-full p-2.5 rounded-lg bg-slate-700 border border-slate-600 text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+          className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:outline-none transition-colors"
         />
       </div>
 
       {/* Priority Type */}
       <div>
-        <label className="block text-sm font-medium text-slate-400 mb-1.5">
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-400 mb-1.5">
           Priority Level
         </label>
         <select
           value={type}
           onChange={(e) => setType(e.target.value)}
-          className="w-full p-2.5 rounded-lg bg-slate-700 border border-slate-600 text-slate-100 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+          className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-cyan-500 focus:outline-none transition-colors"
         >
           <option value="CRITICAL">🔴 Critical (Always On)</option>
           <option value="FLEXIBLE">🟡 Flexible (When Available)</option>

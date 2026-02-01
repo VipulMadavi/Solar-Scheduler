@@ -6,8 +6,7 @@ import { Shield, Cpu } from "lucide-react";
  */
 export default function OverrideToggle({ override, setOverride }) {
   return (
-    <div className="bg-slate-800 px-4 py-3 rounded-xl border border-slate-700/50 flex items-center gap-4">
-
+    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-md dark:shadow-none bg-slate-100 flex justify-between items-center transition-colors duration-300">
       {/* Mode Label */}
       <div className="flex items-center gap-2">
         {override ? (

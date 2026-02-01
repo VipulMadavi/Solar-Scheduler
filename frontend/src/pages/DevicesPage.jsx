@@ -12,10 +12,13 @@ import {
     setOverride as setOverrideApi
 } from "../services/api";
 
+import { useToast } from "../components/Toast";
+
 export default function DevicesPage() {
     const [devices, setDevices] = useState([]);
     const [overrideMode, setOverrideMode] = useState(false);
     const [loading, setLoading] = useState(true);
+    const { addToast } = useToast();
 
     // Fetch initial state
     useEffect(() => {
@@ -42,8 +45,10 @@ export default function DevicesPage() {
         try {
             const res = await addDevice(device);
             setDevices(prev => [...prev, res.data]);
+            addToast(`Device "${device.name}" added`, "success");
         } catch (error) {
             console.error("Failed to add device:", error);
+            addToast("Failed to add device", "error");
         }
     };
 
@@ -51,8 +56,10 @@ export default function DevicesPage() {
         try {
             await deleteDevice(id);
             setDevices(prev => prev.filter(d => d.id !== id));
+            addToast("Device deleted", "success");
         } catch (error) {
             console.error("Failed to delete device:", error);
+            addToast("Failed to delete device", "error");
         }
     };
 
@@ -62,6 +69,7 @@ export default function DevicesPage() {
             setDevices(prev => prev.map(d => d.id === id ? { ...d, isOn } : d));
         } catch (error) {
             console.error("Failed to toggle device:", error);
+            addToast("Failed to toggle device", "error");
         }
     };
 
@@ -82,8 +90,10 @@ export default function DevicesPage() {
         try {
             await updateDevice(updated);
             setDevices(prev => prev.map(d => (d.id === device.id ? updated : d)));
+            addToast(`Device "${name}" updated`, "success");
         } catch (error) {
             console.error("Failed to update device:", error);
+            addToast("Failed to update device", "error");
         }
     };
 
@@ -91,8 +101,10 @@ export default function DevicesPage() {
         try {
             await setOverrideApi(newMode);
             setOverrideMode(newMode);
+            addToast(`Switched to ${newMode ? "MANUAL" : "AUTO"} mode`, "info");
         } catch (error) {
             console.error("Failed to set override mode:", error);
+            addToast("Failed to change mode", "error");
         }
     };
 

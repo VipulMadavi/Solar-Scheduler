@@ -49,16 +49,16 @@ export default function DeviceCard({
 }) {
   return (
     <div className="
-      bg-slate-800 
+      bg-white dark:bg-slate-800 
       p-4 
       rounded-xl 
-      shadow-lg 
+      shadow-md dark:shadow-lg 
       flex 
       justify-between 
       items-center
       hover:shadow-xl 
-      transition
-      border border-slate-700/50
+      transition-all duration-300
+      border border-slate-200 dark:border-slate-700/50
     ">
 
       {/* LEFT */}
@@ -68,7 +68,7 @@ export default function DeviceCard({
         </div>
 
         <div>
-          <h3 className="font-semibold text-slate-100">{device.name}</h3>
+          <h3 className="font-semibold text-slate-900 dark:text-slate-100">{device.name}</h3>
 
           <div className="flex items-center gap-2 mt-1">
             <span className={`text-xs px-2 py-0.5 rounded-full ${colors[device.type]} text-white font-medium`}>
@@ -84,7 +84,7 @@ export default function DeviceCard({
       <div className="flex items-center gap-4">
 
         {/* Status Label */}
-        <span className={`text-xs font-semibold ${device.isOn ? 'text-green-400' : 'text-slate-500'}`}>
+        <span className={`text-xs font-semibold ${device.isOn ? 'text-green-600 dark:text-green-400' : 'text-slate-400 dark:text-slate-500'}`}>
           {device.isOn ? 'ON' : 'OFF'}
         </span>
 

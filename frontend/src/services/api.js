@@ -40,11 +40,12 @@ export const deleteDevice = async (id) => {
 };
 
 export const updateDevice = async (device) => {
-    // Backend doesn't have PUT /devices/:id, so we delete and re-add
-    // Or use POST /device/:id with the full device object
-    // For now, we'll just toggle + handle locally
-    console.warn("updateDevice: Backend doesn't support full device update yet");
-    return Promise.resolve();
+    const response = await axios.put(`${API_BASE}/devices/${device.id}`, {
+        name: device.name,
+        powerW: device.powerW,
+        type: device.type
+    });
+    return response;
 };
 
 export const toggleDevice = async (id, isOn) => {

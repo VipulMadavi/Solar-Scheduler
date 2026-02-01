@@ -125,6 +125,29 @@ export function addDevice(req: Request, res: Response): void {
 }
 
 /**
+ * PUT /devices/:id
+ * Update an existing device
+ * Body: { name?, powerW?, type? }
+ */
+export function updateDevice(req: Request, res: Response): void {
+  const { id } = req.params;
+  const { name, powerW, type } = req.body;
+
+  const device = state.devices.find(d => d.id === id);
+  if (!device) {
+    res.status(404).json({ error: "Device not found" });
+    return;
+  }
+
+  // Update only provided fields
+  if (name !== undefined) device.name = name;
+  if (powerW !== undefined) device.powerW = powerW;
+  if (type !== undefined) device.type = type;
+
+  res.json(device);
+}
+
+/**
  * DELETE /devices/:id
  * Delete a device by id
  */

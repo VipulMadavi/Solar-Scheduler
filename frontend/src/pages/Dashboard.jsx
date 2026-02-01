@@ -13,6 +13,9 @@ import {
   get24hForecast
 } from "../services/api";
 
+import { RefreshCw } from "lucide-react";
+import Spinner from "../components/Spinner";
+
 
 export default function Dashboard() {
 
@@ -25,6 +28,8 @@ export default function Dashboard() {
   const [overrideMode, setOverrideMode] = useState(false);
   const [devices, setDevices] = useState([]);
   const [chartData, setChartData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(new Date());
 
 
   /* ===============================
@@ -107,6 +112,18 @@ export default function Dashboard() {
 
 
   /* ===============================
+     REFRESH
+  =============================== */
+
+  const handleManualRefresh = async () => {
+    setLoading(true);
+    await Promise.all([fetchState(), fetch24hForecast()]);
+    setLastUpdated(new Date());
+    setLoading(false);
+  };
+
+
+  /* ===============================
      UI
   =============================== */
 
@@ -114,7 +131,24 @@ export default function Dashboard() {
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
 
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-slate-100">Dashboard</h1>
+        <div className="flex flex-col">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-slate-100">Dashboard</h1>
+            {loading && <Spinner size="sm" />}
+          </div>
+          <div className="flex items-center gap-2 text-slate-400 text-sm mt-1">
+            <span>Updated: {lastUpdated.toLocaleTimeString()}</span>
+            <button
+              onClick={handleManualRefresh}
+              disabled={loading}
+              className="p-1 hover:text-cyan-400 disabled:opacity-50 transition"
+              title="Refresh Data"
+            >
+              <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+            </button>
+          </div>
+        </div>
+
         <OverrideToggle
           override={overrideMode}
           setOverride={handleOverrideToggle}

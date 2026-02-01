@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getState, setOverride, setDevice, getDevices, addDevice, deleteDevice, getSystemConfig, updateSystemConfig, get24hForecast } from "../controllers/system.controller";
+import { getState, setOverride, setDevice, getDevices, addDevice, updateDevice, deleteDevice, getSystemConfig, updateSystemConfig, get24hForecast } from "../controllers/system.controller";
 
 const router = Router();
 
@@ -8,6 +8,7 @@ router.post("/override", setOverride);
 router.post("/device/:id", setDevice);
 router.get("/devices", getDevices);
 router.post("/devices", addDevice);
+router.put("/devices/:id", updateDevice);
 router.delete("/devices/:id", deleteDevice);
 router.get("/config", getSystemConfig);
 router.post("/config", updateSystemConfig);

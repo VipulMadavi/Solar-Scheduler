@@ -1,8 +1,10 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Server, Settings } from "lucide-react";
+import { LayoutDashboard, Server, Settings, Sun, Moon } from "lucide-react";
+import { useTheme } from "../contexts/ThemeContext";
 
 export default function Navbar() {
     const location = useLocation();
+    const { theme, toggleTheme } = useTheme();
 
     const isActive = (path) => location.pathname === path;
 
@@ -10,8 +12,8 @@ export default function Navbar() {
         <Link
             to={to}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${isActive(to)
-                    ? "bg-cyan-900/50 text-cyan-400"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                ? "bg-cyan-900/50 text-cyan-600 dark:text-cyan-400"
+                : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800"
                 }`}
         >
             {icon}
@@ -20,7 +22,7 @@ export default function Navbar() {
     );
 
     return (
-        <nav className="bg-slate-900 border-b border-slate-800 p-4 sticky top-0 z-50">
+        <nav className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 sticky top-0 z-50 transition-colors duration-300">
             <div className="max-w-7xl mx-auto flex justify-between items-center">
                 {/* Logo */}
                 <div className="flex items-center gap-3">
@@ -41,16 +43,28 @@ export default function Navbar() {
                 </div>
 
                 {/* Navigation Links */}
-                <div className="flex items-center gap-2 bg-slate-950/50 p-1 rounded-xl border border-slate-800">
+                <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-950/50 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
                     <NavItem to="/" icon={<LayoutDashboard size={18} />} label="Dashboard" />
                     <NavItem to="/devices" icon={<Server size={18} />} label="Devices" />
                     <NavItem to="/settings" icon={<Settings size={18} />} label="Settings" />
                 </div>
 
-                {/* Status Indicator */}
-                <div className="hidden md:flex items-center gap-2 text-xs text-slate-500 bg-slate-950 px-3 py-1.5 rounded-full border border-slate-800">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                    System Online
+                {/* Right Side */}
+                <div className="flex items-center gap-4">
+                    {/* Theme Toggle */}
+                    <button
+                        onClick={toggleTheme}
+                        className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        title="Toggle Theme"
+                    >
+                        {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+                    </button>
+
+                    {/* Status Indicator */}
+                    <div className="hidden md:flex items-center gap-2 text-xs text-slate-500 dark:text-slate-500 bg-slate-100 dark:bg-slate-950 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-800">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                        System Online
+                    </div>
                 </div>
             </div>
         </nav>
