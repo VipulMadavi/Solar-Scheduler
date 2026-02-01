@@ -13,8 +13,9 @@ import {
   toggleDevice,
   addDevice,
   deleteDevice,
-  updateDevice
-} from "../services/mockApi";
+  updateDevice,
+  setOverride as setOverrideApi
+} from "../services/api";
 
 
 export default function Dashboard() {
@@ -25,7 +26,7 @@ export default function Dashboard() {
 
   const [battery, setBattery] = useState(0);
   const [forecast, setForecast] = useState(0);
-  const [override, setOverride] = useState(false);
+  const [overrideMode, setOverrideMode] = useState(false);
   const [devices, setDevices] = useState([]);
 
 
@@ -54,7 +55,7 @@ export default function Dashboard() {
       setBattery(Math.round(percent));
       setForecast(data.lastSolarForecastWh ?? 0);
       setDevices(data.devices ?? []);
-      setOverride(data.overrideMode ?? false);
+      setOverrideMode(data.overrideMode ?? false);
 
     } catch {
       console.log("mock fallback");
@@ -129,8 +130,27 @@ export default function Dashboard() {
   =============================== */
 
   const handleAddDevice = async (device) => {
-    await addDevice(device);
-    setDevices(prev => [...prev, device]);
+    try {
+      const res = await addDevice(device);
+      // Use the device from backend response (includes real UUID)
+      setDevices(prev => [...prev, res.data]);
+    } catch (error) {
+      console.error("Failed to add device:", error);
+    }
+  };
+
+
+  /* ===============================
+     OVERRIDE TOGGLE
+  =============================== */
+
+  const handleOverrideToggle = async (newMode) => {
+    try {
+      await setOverrideApi(newMode);
+      setOverrideMode(newMode);
+    } catch (error) {
+      console.error("Failed to set override mode:", error);
+    }
   };
 
 
@@ -154,8 +174,8 @@ export default function Dashboard() {
 
       {/* MODE TOGGLE */}
       <OverrideToggle
-        override={override}
-        setOverride={setOverride}
+        override={overrideMode}
+        setOverride={handleOverrideToggle}
       />
 
 
@@ -169,7 +189,7 @@ export default function Dashboard() {
           <DeviceCard
             key={d.id}
             device={d}
-            disabled={!override}
+            disabled={!overrideMode}
             onToggle={toggleDeviceLocal}
             onDelete={handleDeleteDevice}   // ✅ added
             onEdit={handleEditDevice}       // ✅ added
