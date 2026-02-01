@@ -125,16 +125,18 @@ export default function DevicesPage() {
             )}
 
             {/* Add Device/Device Grid */}
-            <div className="grid lg:grid-cols-4 gap-6">
+            <div className="grid lg:grid-cols-3 gap-8">
 
                 {/* Left Col: Add Form */}
                 <div className="lg:col-span-1">
-                    <h2 className="text-lg font-semibold text-slate-300 mb-4">Add New Device</h2>
-                    <AddDeviceForm onAdd={handleAddDevice} />
+                    <div className="sticky top-24">
+                        <h2 className="text-lg font-semibold text-slate-300 mb-4">Add New Device</h2>
+                        <AddDeviceForm onAdd={handleAddDevice} />
+                    </div>
                 </div>
 
                 {/* Right Col: Device List */}
-                <div className="lg:col-span-3 space-y-4">
+                <div className="lg:col-span-2 space-y-6">
                     <h2 className="text-lg font-semibold text-slate-300">Connected Devices ({devices.length})</h2>
 
                     <div className="grid sm:grid-cols-2 gap-4">
